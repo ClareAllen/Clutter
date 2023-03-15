@@ -1,0 +1,13 @@
+TestDataIn = reshape([22:25,1:21],5,5);
+TestDataIn(TestDataIn>17) = -9999;
+TestDataIn = kron(TestDataIn,ones(3));
+TestDataIn = [TestDataIn;TestDataIn(end,:)];
+TestDataIn = [TestDataIn,TestDataIn(:,end)];
+
+%% Inputs
+ResolutionIn = 20;
+ResolutionOut = 40;
+%%
+ReductionFactor = ResolutionOut/ResolutionIn; % 2 = 20m in 40m out
+
+ClutterCount = NaN(size(TestDataIn),17);
