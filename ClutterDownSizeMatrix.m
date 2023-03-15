@@ -30,17 +30,34 @@
 %% Inputs
 ResolutionIn = 20;
 ResolutionOut = 200;
+FolderIn = ['\\ofcomprodfile01.file.core.windows.net\rshmapdata\Mapping Data\DLU\DLU_',num2str(ResolutionIn),'m\'];
+FolderOut = ['S:\Policy Executive\Spectrum Policy Group\Technical Tools Area\MapData_Siradel20m\Resampled\DLU_',num2str(ResolutionOut),'m\'];
 
-%%
-ReductionFactor = ResolutionOut/ResolutionIn; % 2 = 20m in 40m out
-FolderIn = ['\\RSH-MAP-DATA\Mapping Data\DLU\DLU_',num2str(ResolutionIn),'m\'];
-FolderOut = ['\\RSH-MAP-DATA\Mapping Data\DLU\DLU_',num2str(ResolutionOut),'m\'];
+%% Assess reduction factors and need to sub-sample input data
+ReduceInput = false;
+if rem(ResolutionOut,ResolutionIn) > 0
+    ReduceInput = true;
+    ReductionFactor = 2*ResolutionOut/ResolutionIn;
+else
+    ReductionFactor = ResolutionOut/ResolutionIn; % 2 = 20m in 40m out
+end
+
+if rem(ReductionFactor,1)>0
+    disp('Error - data area not compatible')
+    return
+end
+
 
 for ii = -2:9
     for jj = -3:13
         FileNameIn = ['DLU_',num2str(ResolutionIn),'m_', num2str(ii), '_', num2str(jj), '.asc'];
         FileNameOut = ['DLU_',num2str(ResolutionOut),'m_', num2str(ii), '_', num2str(jj), '.asc'];
         GridIn = GridASCII.Open([FolderIn FileNameIn]);
+        if ReduceInput
+            SampledGridIn = GridASCII(GridIn.xllcorner,GridIn.yllcorner,GridIn.ncols*2,GridIn.nrows*2,GridIn.cellsize/2,GridIn.nodata_value);
+            SampledGridIn.data = kron(GridIn.data,ones(2));
+            GridIn = SampledGridIn;
+        end
         GridOut = GridASCII(GridIn.xllcorner,GridIn.yllcorner,GridIn.ncols/ReductionFactor,GridIn.nrows/ReductionFactor,GridIn.cellsize*ReductionFactor,GridIn.nodata_value);
 
         ClutterCount = NaN(GridOut.nrows,GridOut.ncols,17);
@@ -49,7 +66,6 @@ for ii = -2:9
 % % % %         preferableIndex = [3,1,2,6,4,7,5,10,11,12,13,14,15,16,17,9,8];
 % % % %         [~, typeIndexPreferableOrder] = sort(preferableIndex,2,'descend');
         CodeOrder = [GridIn.nodata_value;15;14;13;12;11;10;9;8;16;17;6;4;7;5;1;3;2]; % ordered by priority of class if null reduced category null
-
 
         for kk = 1:18
             CodeInd = GridIn.data == CodeOrder(kk);
@@ -61,12 +77,13 @@ for ii = -2:9
 
         GridOut.data = ClutterCode;
         fig1 = figure('units','normalized','outerposition',[0 0 0.9 0.9]);
-        subplot(1,2,1); image(GridIn.data);axis square;title([num2str(ResolutionIn),'m grid']);colorbar;caxis([1 17]);
-        subplot(1,2,2); image(GridOut.data);axis square;title([num2str(ResolutionOut),'m grid']);colorbar;caxis([1 17]);
+        subplot(1,2,1); imagesc(GridIn.data,[0 17]);axis square;title([num2str(ResolutionIn),'m grid']);colorbar;
+        subplot(1,2,2); imagesc(GridOut.data,[0 17]);axis square;title([num2str(ResolutionOut),'m grid']);colorbar;
+        annotation("textbox",[0.05,0.9,0.9 0.1],'string',['DLU ',num2str(ResolutionOut),'m ', num2str(ii), ' ', num2str(jj)],'LineStyle','none','FontSize',12,'FontWeight','normal','HorizontalAlignment','center');
         saveas(fig1,[FolderOut 'Check_' num2str(ii) '_' num2str(jj) '.jpg'],'jpeg');
         close(fig1);
         Save(GridOut, [FolderOut FileNameOut]);
-        clearvars -except FolderIn FolderOut ResolutionIn ResolutionOut ReductionFactor ii jj 
+        clearvars -except FolderIn FolderOut ResolutionIn ResolutionOut ReductionFactor ii jj ReduceInput
     end
 end
 
